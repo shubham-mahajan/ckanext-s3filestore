@@ -185,9 +185,14 @@ class BaseS3Uploader(object):
 
         params.update(extra_params)
 
-        url = client.generate_presigned_url(ClientMethod='get_object',
-                                            Params=params,
-                                            ExpiresIn=self.signed_url_expiry)
+        expiry = extra_params.get('expires_in', self.signed_url_expiry)
+
+        url = client.generate_presigned_url(
+            ClientMethod='get_object',
+            Params=params,
+            ExpiresIn=expiry
+        )
+
         if self.download_proxy:
             url = URL_HOST.sub(self.download_proxy + '/', url, 1)
 
