@@ -160,7 +160,7 @@ class BaseS3Uploader(object):
         except Exception as e:
             log.error('Something went very very wrong for {0}'.format(str(e)))
 
-    def get_signed_url_to_key(self, key, extra_params={}, read_only=False):
+    def get_signed_url_to_key(self, key, extra_params={}, read_only=False, expires_in=False):
         '''Generates a pre-signed URL giving access to an S3 object.
 
         If a download_proxy is configured, then the URL will be
@@ -185,7 +185,7 @@ class BaseS3Uploader(object):
 
         params.update(extra_params)
 
-        expiry = extra_params.get('expires_in', self.signed_url_expiry)
+        expiry = expires_in if expires_in else self.signed_url_expiry
 
         url = client.generate_presigned_url(
             ClientMethod='get_object',
