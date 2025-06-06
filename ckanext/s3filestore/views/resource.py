@@ -106,7 +106,8 @@ def resource_download(package_type, id, resource_id, filename=None):
 
 
 def _create_proxied_download_url(url):
-    return f"{os.environ.get('CKANEXT__S3FILESTORE__DOWNLOAD_PROXY_SERVER_URL')}/proxy?url={urllib.parse.quote(url, safe='~()*!.\'')}"
+    encoded_uri = urllib.parse.quote(url, safe="~()*!.'")
+    return f"{os.environ.get('CKANEXT__S3FILESTORE__DOWNLOAD_PROXY_SERVER_URL')}/proxy?url={encoded_uri}"
 
 def filesystem_resource_download(package_type, id, resource_id, filename=None):
     """
