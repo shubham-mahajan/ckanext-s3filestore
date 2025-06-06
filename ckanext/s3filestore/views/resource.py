@@ -16,6 +16,7 @@ import ckan.lib.uploader as uploader
 from ckan.lib.uploader import get_storage_path
 
 import ckan.model as model
+from flask import request
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +66,8 @@ def resource_download(package_type, id, resource_id, filename=None):
             log.warn('Key \'{0}\' not found in bucket \'{1}\''
                      .format(key_path, upload.bucket_name))
 
+        is_proxied = request.args.get('proxied_download', False)
+
         try:
             if preview:
                 url = upload.get_signed_url_to_key(key_path)
@@ -75,7 +78,7 @@ def resource_download(package_type, id, resource_id, filename=None):
                 }
                 url = upload.get_signed_url_to_key(
                     key_path, params, read_only=True)
-            return redirect(url)
+            return redirect(_create_proxied_download_url(url) if is_proxied else url)
 
         except ClientError as ex:
             if ex.response['Error']['Code'] in ['NoSuchKey', '404']:
@@ -91,14 +94,18 @@ def resource_download(package_type, id, resource_id, filename=None):
                         resource_id=resource_id,
                         filename=filename,
                         preview=preview)
-                    return redirect(url)
+                    
+                    return redirect(_create_proxied_download_url(url) if is_proxied else url)
 
                 return abort(404, _('Resource data not found'))
             else:
                 raise ex
     else:
-        return redirect(rsc[u'url'])
+        return redirect(_create_proxied_download_url(rsc[u'url']) if is_proxied else rsc[u'url'])
 
+
+def _create_proxied_download_url(url):
+    return f"{os.environ.get('CKANEXT__S3FILESTORE_DOWNLOAD_PROXY_SERVER_URL')}/proxy?url={url}"
 
 def filesystem_resource_download(package_type, id, resource_id, filename=None):
     """
