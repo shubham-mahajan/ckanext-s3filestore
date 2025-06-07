@@ -2,6 +2,8 @@
 import os
 import logging
 import mimetypes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+import base64
 
 import flask
 import urllib.parse
@@ -107,7 +109,13 @@ def resource_download(package_type, id, resource_id, filename=None):
 
 def _create_proxied_download_url(url):
     encoded_uri = urllib.parse.quote(url, safe="~()*!.'")
-    return f"{os.environ.get('CKANEXT__S3FILESTORE__DOWNLOAD_PROXY_SERVER_URL')}/proxy?url={encoded_uri}"
+    aesgcm = AESGCM(os.environ.get('CKANEXT__S3FILESTORE__DOWNLOAD_PROXY_ORIGIN_AESGCM_SECRET'))
+    nonce = os.urandom(12)
+    origin = request.headers.get('Origin') or request.headers.get('Referer') or request.headers.get('Referrer')
+    ciphertext = aesgcm.encrypt(nonce, origin.encode(), None)
+    encrypted = nonce + ciphertext
+    encrypted_origin = base64.urlsafe_b64encode(encrypted).decode() 
+    return f"{os.environ.get('CKANEXT__S3FILESTORE__DOWNLOAD_PROXY_SERVER_URL')}/proxy?url={encoded_uri}&origin={encrypted_origin}"
 
 def filesystem_resource_download(package_type, id, resource_id, filename=None):
     """
