@@ -109,12 +109,27 @@ def resource_download(package_type, id, resource_id, filename=None):
 
 def _create_proxied_download_url(url):
     encoded_uri = urllib.parse.quote(url, safe="~()*!.'")
-    aesgcm = AESGCM(os.environ.get('CKANEXT__S3FILESTORE__DOWNLOAD_PROXY_ORIGIN_AESGCM_SECRET'))
+    
+    secret = os.environ.get('CKANEXT__S3FILESTORE__DOWNLOAD_PROXY_ORIGIN_AESGCM_SECRET')
+    if secret is None:
+        raise ValueError("AESGCM secret not found in environment variables")
+    
+    try:
+        key = bytes.fromhex(secret)
+    except ValueError:
+        key = secret.encode('utf-8')
+    
+    aesgcm = AESGCM(key)
     nonce = os.urandom(12)
+    
     origin = request.headers.get('Origin') or request.headers.get('Referer') or request.headers.get('Referrer')
+    if origin is None:
+        raise ValueError("No origin header found in request")
+    
     ciphertext = aesgcm.encrypt(nonce, origin.encode(), None)
     encrypted = nonce + ciphertext
     encrypted_origin = base64.urlsafe_b64encode(encrypted).decode() 
+    
     return f"{os.environ.get('CKANEXT__S3FILESTORE__DOWNLOAD_PROXY_SERVER_URL')}/proxy?url={encoded_uri}&origin={encrypted_origin}"
 
 def filesystem_resource_download(package_type, id, resource_id, filename=None):
