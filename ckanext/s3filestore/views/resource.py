@@ -1,5 +1,6 @@
 # encoding: utf-8
 import os
+from urllib.parse import urlparse
 import logging
 import mimetypes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -122,11 +123,24 @@ def _create_proxied_download_url(url):
     aesgcm = AESGCM(key)
     nonce = os.urandom(12)
     
-    origin = request.headers.get('Origin') or request.headers.get('Referer') or request.headers.get('Referrer')
-    if origin is None:
+    host = (
+        request.headers.get('Origin') or 
+        request.headers.get('Referer') or 
+        request.headers.get('Referrer') or
+        request.headers.get(':authority') or
+        request.headers.get('Host') or
+        request.headers.get('User-Agent') or
+        request.remote_addr)
+
+    if host is None:
         raise ValueError("No origin header found in request")
     
-    ciphertext = aesgcm.encrypt(nonce, origin.encode(), None)
+    if host.startswith(('http://', 'https://')):
+        parsed = urlparse(host)
+        host = parsed.netloc
+    else:
+        host = host.split('/')[0]
+    ciphertext = aesgcm.encrypt(nonce, host.encode(), None)
     encrypted = nonce + ciphertext
     encrypted_origin = base64.urlsafe_b64encode(encrypted).decode() 
     
